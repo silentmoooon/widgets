@@ -50,9 +50,9 @@ export default (props)=>{
         Blockchains[payment.route.blockchain].stables.usd.map((stable)=>{
           return Exchanges.route({
             blockchain: payment.route.blockchain,
-            tokenIn: payment.route.fromToken.address,
+            tokenIn: payment.route.fromTokens[0].fromToken.address,
             tokenOut: stable,
-            amountIn: payment.route.fromAmount,
+            amountIn: payment.route.fromTokens[0].fromAmount,
             fromAddress: account,
             toAddress: account
           })
@@ -60,9 +60,9 @@ export default (props)=>{
       ),
       !payment.route.directTransfer ? Exchanges.route({
         blockchain: payment.route.blockchain,
-        tokenIn: payment.route.toToken.address,
-        tokenOut: payment.route.fromToken.address,
-        amountIn: payment.route.feeAmount ? ethers.BigNumber.from(payment.route.toAmount).add(ethers.BigNumber.from(payment.route.feeAmount)) : payment.route.toAmount,
+        tokenIn: payment.route.fromTokens[0].toToken.address,
+        tokenOut: payment.route.fromTokens[0].fromToken.address,
+        amountIn: payment.route.fromTokens[0].feeAmount ? ethers.BigNumber.from(payment.route.fromTokens[0].toAmount).add(ethers.BigNumber.from(payment.route.fromTokens[0].feeAmount)) : payment.route.fromTokens[0].toAmount,
         fromAddress: account,
         toAddress: account
       }) : Promise.resolve([])
@@ -71,7 +71,7 @@ export default (props)=>{
 
       if(reverseRoute) {
         let reverseAmountOutBN = ethers.BigNumber.from(reverseRoute.amountOut)
-        let paymentAmountInBN = ethers.BigNumber.from(payment.route.fromAmount)
+        let paymentAmountInBN = ethers.BigNumber.from(payment.route.fromTokens[0].fromAmount)
         let divPercent = 100-reverseAmountOutBN.mul(ethers.BigNumber.from('100')).div(paymentAmountInBN).abs().toString()
         if(divPercent >= 10) {
           setPaymentValueLoss(divPercent)
@@ -81,15 +81,15 @@ export default (props)=>{
       }
 
       let USDValue
-      if(Blockchains[payment.route.blockchain].stables.usd.includes(payment.route.fromToken.address)) {
+      if(Blockchains[payment.route.blockchain].stables.usd.includes(payment.route.fromTokens[0].fromToken.address)) {
         // is stable
 
         const decimals = Blockchains[payment.route.blockchain].tokens.find(
-          (token)=>token.address===payment.route.fromToken.address
+          (token)=>token.address===payment.route.fromTokens[0].fromToken.address
         ).decimals
 
         USDValue = ethers.utils.formatUnits(
-          payment.route.fromAmount.toString(),
+          payment.route.fromTokens[0].fromAmount.toString(),
           decimals
         )
 

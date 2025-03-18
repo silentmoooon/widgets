@@ -232,11 +232,11 @@ export default (props)=>{
 
   const debouncedSetPayment = useCallback(debounce((selectedRoute)=>{
     if(selectedRoute) {
-      let fromToken = selectedRoute.fromToken
+      let fromToken = selectedRoute.fromTokens[0].fromToken
       Promise.all([
         fromToken.name(),
         fromToken.symbol(),
-        fromToken.readable(selectedRoute.fromAmount)
+        fromToken.readable(selectedRoute.fromTokens[0].fromAmount)
       ]).then(([name, symbol, amount])=>{
         setPayment({
           blockchain: selectedRoute.blockchain,

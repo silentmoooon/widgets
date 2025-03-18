@@ -60,15 +60,22 @@ export default (props)=>{
     })
   }
 
-  const updateRouteAmount = (route, amountBN)=> {
-    route.fromAmount = amountBN.toString()
+  const updateRouteAmount = (fromToken, amountBN)=> {
+    fromToken.fromAmount = amountBN.toString()
   }
 
   const roundAmount = async (route, amountBN)=> {
-    if(route.directTransfer){ return route }
-    let readableAmount = await route.fromToken.readable(amountBN || route.fromAmount)
-    let roundedAmountBN = await route.fromToken.BigNumber(round(readableAmount))
-    updateRouteAmount(route, roundedAmountBN)
+     await Promise.all(route.fromTokens.map( async (fromToken) => {
+        if(fromToken.directTransfer){ return fromToken }
+        let readableAmount = await fromToken.fromToken.readable(amountBN || fromToken.fromAmount)
+        let roundedAmountBN = await fromToken.fromToken.BigNumber(round(readableAmount))
+        updateRouteAmount(fromToken, roundedAmountBN)
+        return  fromToken
+      })
+     ).then((fromTokens)=>{
+       route.fromTokens = fromTokens
+     })
+
     return route
   }
 
@@ -110,7 +117,7 @@ export default (props)=>{
 
   const updateAllRoutes = useCallback(debounce((selectedRoute, updatedRoutes)=>{
     if(updatedRoutes === undefined){ return }
-    if(updatedRoutes.length == 0) {
+    if(updatedRoutes.length === 0) {
       setAllRoutes(updatedRoutes)
       if(props.setMaxRoute) { props.setMaxRoute(null) }
     } else {
@@ -122,17 +129,17 @@ export default (props)=>{
           const updatedSelectedRoute = roundedRoutes[
             roundedRoutes.findIndex(
               (route)=>(
-                route.fromToken.address == selectedRoute.fromToken.address && 
-                route.blockchain == selectedRoute.blockchain
+                route.fromTokens[0].fromToken.address === selectedRoute.fromTokens[0].fromToken.address &&
+                route.blockchain === selectedRoute.blockchain
               )
             )
           ]
           if(updatedSelectedRoute) {
-            if(selectedRoute.fromAmount != updatedSelectedRoute.fromAmount) {
+            if(selectedRoute.fromTokens[0].fromAmount !== updatedSelectedRoute.fromTokens[0].fromAmount) {
               setUpdatedRouteWithNewPrice(updatedSelectedRoute)
             } else if ( // other reasons but price to update selected route
-              selectedRoute.approvalRequired != updatedSelectedRoute.approvalRequired ||
-              selectedRoute.currentAllowance != updatedSelectedRoute.currentAllowance
+              selectedRoute.fromTokens[0].approvalRequired !== updatedSelectedRoute.fromTokens[0].approvalRequired ||
+              selectedRoute.fromTokens[0].currentAllowance !== updatedSelectedRoute.fromTokens[0].currentAllowance
             ) {
               setSelectedRoute(updatedSelectedRoute)
             }
@@ -144,15 +151,15 @@ export default (props)=>{
         if(amountsMissing && props.setMaxRoute) {
           Promise.all(roundedRoutes.map((route)=>{
             return new Promise((resolve, reject)=>{
-              if(Blockchains[route.blockchain].tokens.findIndex((token)=>token.address.toLowerCase()===route.fromToken.address.toLowerCase()) === -1) {
+              if(Blockchains[route.blockchain].tokens.findIndex((token)=>token.address.toLowerCase()===route.fromTokens[0].fromToken.address.toLowerCase()) === -1) {
                 // Major tokens only
                 return resolve()
               }
               Exchanges.route({
                 blockchain: route.blockchain,
-                tokenIn: route.fromToken.address,
-                amountIn: route.fromBalance,
-                tokenOut: Blockchains[route.blockchain].stables.usd[0].toLowerCase() !== route.fromToken.address.toLowerCase() ? Blockchains[route.blockchain].stables.usd[0] : Blockchains[route.blockchain].stables.usd[1],
+                tokenIn: route.fromTokens[0].fromToken.address,
+                amountIn: route.fromTokens[0].fromBalance,
+                tokenOut: Blockchains[route.blockchain].stables.usd[0].toLowerCase() !== route.fromTokens[0].fromToken.address.toLowerCase() ? Blockchains[route.blockchain].stables.usd[0] : Blockchains[route.blockchain].stables.usd[1],
                 fromAddress: route.fromAddress,
                 toAddress: route.toAddress
               }).then((usdRoute)=>resolve({ route, usdRoute })).catch(reject)
